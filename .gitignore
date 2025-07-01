@@ -1,8 +1,11 @@
-*.h5
+#*.h5
 #*.mat
-*.npz
-*.save
+#*.npz
+#*.save
 __pycache__/
+
+# Ignore loss files (already included in results .mat files)
+*loss.npz
 
 # Ignore the specific data files (these are large and should not be tracked)
 data/raw/data_MRFDBF.mat
