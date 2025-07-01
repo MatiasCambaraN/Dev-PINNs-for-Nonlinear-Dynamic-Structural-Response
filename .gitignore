@@ -3,3 +3,7 @@
 *.npz
 *.save
 __pycache__/
+
+# Ignore the specific data files (these are large and should not be tracked)
+data/raw/data_MRFDBF.mat
+
