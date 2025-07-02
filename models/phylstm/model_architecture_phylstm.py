@@ -226,8 +226,10 @@ class DeepPhyLSTM2:
 
     def callback(self, loss, best_loss):
 
-        global Loss_BFGS
-        global Loss_val_BFGS
+        Loss_BFGS = [] # Added for BFGS loss tracking
+        Loss_val_BFGS = [] # Added for BFGS validation loss tracking
+        #global Loss_BFGS
+        #global Loss_val_BFGS
         Loss_BFGS = np.append(Loss_BFGS, loss)
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
@@ -503,8 +505,10 @@ class DeepPhyLSTM3:
 
     def callback(self, loss, best_loss):
 
-        global Loss_BFGS
-        global Loss_val_BFGS
+        Loss_BFGS = [] # Added for BFGS loss tracking
+        Loss_val_BFGS = [] # Added for BFGS validation loss tracking
+        #global Loss_BFGS
+        #global Loss_val_BFGS
         Loss_BFGS = np.append(Loss_BFGS, loss)
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
