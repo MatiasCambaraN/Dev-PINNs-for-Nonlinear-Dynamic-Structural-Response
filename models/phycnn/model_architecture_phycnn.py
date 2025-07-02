@@ -88,8 +88,17 @@ class DeepPhyCNNutt:
     def net_structure(self, ag):
         eta = self.CNN_model(ag)
 
-        Phi_ut = np.reshape(self.Phi_t, [1, self.eta_tt.shape[1], self.eta_tt.shape[1]])
-        Phi_ut = np.repeat(Phi_ut, self.eta_tt.shape[0], axis=0)
+        eta_shape = tf.shape(eta)
+        batch_size = eta_shape[0]
+        output_dim = eta_shape[1]
+
+        Phi_ut = tf.reshape(self.Phi_t, [1, output_dim, output_dim])
+        Phi_ut = tf.tile(Phi_ut, [batch_size, 1, 1])
+        # Modified Phi_ut construction to avoid shape mismatch during prediction.
+        # Replaced use of self.eta_tt.shape with dynamic shape extraction from `eta`,
+        # using tf.shape() instead of static shape access. This ensures compatibility
+        # when batch size is not fixed (e.g., during inference).
+
         eta_t = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta)
         eta_tt = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta_t)
 
