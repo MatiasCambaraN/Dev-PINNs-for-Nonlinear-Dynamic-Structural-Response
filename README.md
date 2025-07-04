@@ -1,44 +1,48 @@
-# 🧠 Comparación de Modelos de Deep Learning para Respuesta Dinámica Estructural
-
-Este proyecto tiene como objetivo comparar diversos modelos de deep learning propuestos por un autor para predecir la respuesta dinámica de estructuras ante cargas sísmicas, utilizando diferentes datasets sintéticos y reales. Se enfoca en una implementación modular, reutilizable y fácilmente escalable.
+Aquí tienes la **traducción completa al inglés** manteniendo toda la estructura, formato y contenido original:
 
 ---
 
-## 📁 Estructura del Proyecto
+# Deep Learning Model Comparison for Structural Dynamic Response
+
+This project aims to compare various deep learning models proposed by an author to predict the dynamic response of structures under seismic loads, using different synthetic and real datasets. It focuses on a modular, reusable, and easily scalable implementation.
+
+---
+
+## Project Structure
 
 ```plaintext
 ComparacionModelos/
 │
-├── configs/                     # Configuraciones YAML por modelo
+├── configs/                     # YAML configurations per model
 │   └── multiphylstm.yaml
 │
-├── data/                        # Datos estructurales
-│   ├── raw/                    # Datasets originales
-│   └── processed/              # Datasets preparados por modelo
+├── data/                        # Structural datasets
+│   ├── raw/                     # Original datasets
+│   └── processed/               # Model-specific prepared datasets
 │
-├── logs/                        # Archivos de logs de entrenamiento
+├── logs/                        # Training log files
 │
-├── models/                      # Implementaciones de modelos
+├── models/                      # Model implementations
 │   ├── deeplstm/
 │   ├── phycnn/
 │   └── phylstm/
 │
-├── notebooks/                   # Notebooks Jupyter de experimentación
+├── notebooks/                   # Jupyter notebooks for experimentation
 │
-├── results/                     # Resultados obtenidos
-│   ├── figures/                # Gráficas comparativas y visualizaciones
+├── results/                     # Obtained results
+│   ├── figures/                 # Comparative plots and visualizations
 │   ├── results_deeplstm/
 │   ├── results_phycnn/
 │   └── results_phylstm/
 │
-├── utils/                       # Funciones auxiliares (preprocesamiento, métricas, etc.)
+├── utils/                       # Auxiliary functions (preprocessing, metrics, etc.)
 │
-└── README.md                    # Este archivo
+└── README.md                    # This file
 ```
 
 ---
 
-## 📚 Modelos Comparados
+## Compared Models
 
 * **DeepLSTM**
 
@@ -50,53 +54,62 @@ ComparacionModelos/
   * `PhyCNN-$\ddot{x}$`
 * **PhyLSTM**
 
-  * `PhyLSTM²`: arquitectura doble
-  * `PhyLSTM³`: arquitectura triple
+  * `PhyLSTM²`: double architecture
+  * `PhyLSTM³`: triple architecture
 
 ---
 
-## 📊 Bases de Datos
+## Datasets
 
 * BoucWen-BLW
 * Duffing
 * BoucWen-5DOF
 * MRFDBF-3DOF
-* San Bernardino (acelerogramas reales)
+* San Bernardino (real accelerograms)
 
 ---
 
-## ⚙️ Configuración de Experimentos
+---
 
-Los archivos YAML dentro de `configs/` permiten especificar hiperparámetros, rutas, formato de datos, etc.
-Ejemplo (`multiphylstm.yaml`):
+## Experiment Configuration
+
+The YAML files located in the `configs/` directory define the full Conda virtual environments required to run the project.
+
+Each configuration file contains the necessary Python version, package dependencies, and environment variables to ensure consistent and reproducible execution across platforms.
+
+Example (`multiphylstm.yaml`):
 
 ```yaml
-model:
-  name: PhyLSTM3
-  hidden_units: 128
-  lstm_layers: 3
-  fc_layers: 2
-  dropout: 0.2
-
-training:
-  epochs: 100
-  batch_size: 32
-  optimizer: adam
-  learning_rate: 0.001
+name: multiphylstm              # Conda environment name
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.6
+  - tensorflow=1.15.5
+  - keras=2.3.1
+  - numpy=1.19
+  - pandas=1.1
+  - matplotlib=3.3
+  ...
 ```
+
+> 🔧 For Linux users, TensorFlow with GPU support must be installed manually via pip using the NVIDIA repository.
+
+You can create different YAML files to define environments optimized for various models, datasets, or operating systems. This structure allows seamless switching between configurations and ensures all code runs under the correct set of dependencies.
 
 ---
 
-## 🚀 Instrucciones de Uso
+## Usage Instructions
 
-1. Clona este repositorio:
+1. Clone this repository:
 
    ```bash
-   git clone https://github.com/tu-usuario/ComparacionModelos.git 
+   git clone https://github.com/your-username/ComparacionModelos.git 
    cd ComparacionModelos
    ```
 
-2. Crea y activa el entorno Conda según tu sistema operativo:
+2. Create and activate the Conda environment depending on your OS:
 
    ### 🔷 Linux
 
@@ -105,7 +118,7 @@ training:
    conda activate multiphylstm
    ```
 
-   Luego, instala manualmente TensorFlow optimizado para GPU:
+   Then manually install GPU-optimized TensorFlow:
 
    ```bash
    pip install nvidia-tensorflow[horovod]==1.15.5+nv20.12 --extra-index-url https://pypi.nvidia.com
@@ -118,19 +131,19 @@ training:
    conda activate multiphylstm
    ```
 
-3. Coloca los datasets en el directorio:
+3. Place the datasets in the directory:
 
    ```
    data/raw/
    ```
 
-4. Preprocesa los datos usando las funciones en:
+4. Preprocess the data using the functions in:
 
    ```
    utils/preprocessing.py
    ```
 
-5. Ejecuta los notebooks o scripts para entrenamiento y evaluación desde:
+5. Run the notebooks or training/evaluation scripts from:
 
    ```
    notebooks/
@@ -138,57 +151,49 @@ training:
 
 ---
 
-## 🧪 Resultados
+## Results
 
-Los resultados de entrenamiento y predicción se almacenan en `results/` separados por modelo. Las visualizaciones clave están en `results/figures/`.
-
----
-
-## ✅ Estado del Proyecto
-
-* [x] Estructura de carpetas
-* [x] Separación modular de modelos
-* [x] Scripts y notebooks de entrenamiento
-* [ ] Validación cruzada automática
-* [ ] Dashboard de comparación final
+Training and prediction results are stored in `results/`, separated by model. Key visualizations are located in `results/figures/`.
 
 ---
 
-Claro, aquí tienes la sección modificada para reflejar que ahora utilizas dos archivos YAML (uno para Linux y otro para Windows), e incluyendo una nota clara sobre la instalación manual de TensorFlow en Linux:
+## Project Status
+
+* [x] Folder structure
+* [x] Modular model separation
+* [x] Training scripts and notebooks
+* [ ] Automatic hyperparameter tuning for new datasets
+* [ ] Final comparison dashboard
 
 ---
 
-## 🧰 Dependencias Principales
+## Main Dependencies
 
 * **Python 3.6**
-* **TensorFlow 1.15.5 (NVIDIA)** — soporte para GPU con CUDA 10.0 / cuDNN 7.6 *(se instala manualmente en Linux)*
+* **TensorFlow 1.15.5 (NVIDIA)** — GPU support with CUDA 10.0 / cuDNN 7.6 *(manually installed on Linux)*
 * **Keras 2.3.1**
 * **NumPy 1.19 / Pandas 1.1 / Matplotlib 3.3**
 * **Scikit-learn 0.24**
 * **Jupyter Notebook / JupyterLab**
 * **Seaborn**
 * **PyYAML / H5py / Protobuf**
-* **absl-py / gast / six** — dependencias internas requeridas por TensorFlow
+* **absl-py / gast / six** — internal dependencies required by TensorFlow
 
-> 📦 Todas estas dependencias están incluidas en los entornos Conda definidos en:
+> 📦 All these dependencies are included in the Conda environments defined in:
 >
-> * [`configs/multiphylstm.yaml`](configs/multiphylstm.yaml) (para Windows)
-> * [`configs/multiphylstm_linux.yaml`](configs/multiphylstm_linux.yaml) (para Linux)
+> * [`configs/multiphylstm.yaml`](configs/multiphylstm.yaml) (for Windows)
+> * [`configs/multiphylstm_linux.yaml`](configs/multiphylstm_linux.yaml) (for Linux)
 
-> ⚠️ Nota: En Linux, TensorFlow debe instalarse manualmente con pip desde el repositorio oficial de NVIDIA.
-
----
-
-Perfecto. Con esta información, aquí tienes el bloque formateado en Markdown para incluir directamente en tu `README.md` bajo una sección como:
+> ⚠️ Note: On Linux, TensorFlow must be installed manually using pip from NVIDIA's official repository.
 
 ---
 
-## 💻 Hardware de Ejecución
+## Execution Hardware
 
 ### 🔷 Laptop (Windows)
 
-* **Sistema operativo**: Windows 11 Home Single Language — v10.0.22631
-* **CPU**: Intel(R) Core i7-9750H @ 2.60GHz — 6 núcleos / 12 hilos
+* **Operating system**: Windows 11 Home Single Language — v10.0.22631
+* **CPU**: Intel(R) Core i7-9750H @ 2.60GHz — 6 cores / 12 threads
 * **RAM**: 16 GB (2x 8 GB)
 * **GPU**:
 
@@ -197,10 +202,10 @@ Perfecto. Con esta información, aquí tienes el bloque formateado en Markdown p
 * **CUDA**: 10.0 (v10.0.130)
 * **cuDNN**: 7.4.1
 
-### 🔶 PC de Escritorio (Linux)
+### 🔶 Desktop PC (Linux)
 
-* **Sistema operativo**: Ubuntu 24.04.2 LTS (Noble Numbat) — Kernel 6.8.0-60-generic
-* **CPU**: Intel Core i5-12400 — 6 núcleos / 12 hilos
+* **Operating system**: Ubuntu 24.04.2 LTS (Noble Numbat) — Kernel 6.8.0-60-generic
+* **CPU**: Intel Core i5-12400 — 6 cores / 12 threads
 * **RAM**: 16 GB
 * **GPU**: NVIDIA GeForce RTX 3060 — 12 GB
 * **CUDA**: 12.0 (v12.0.140)
@@ -208,5 +213,8 @@ Perfecto. Con esta información, aquí tienes el bloque formateado en Markdown p
 
 ---
 
-> ℹ️ Este entorno fue utilizado para entrenar y evaluar algunos modelos incluidos en el proyecto.
+> ℹ️ This environment was used to train and evaluate some models included in the project.
+
+---
+
 
