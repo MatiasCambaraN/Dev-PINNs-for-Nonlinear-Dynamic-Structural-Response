@@ -1,6 +1,15 @@
 import os
 import platform
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except ImportError:
+    tf = None
+
+try:  
+    import torch 
+except ImportError:
+    torch = None  
+
 from datetime import datetime
 import subprocess
 
@@ -175,8 +184,14 @@ def print_system_info():
     print(f"- CPU                    : {get_cpu_name()}")
     get_gpu_info_nvidia_smi()
     print(f"- Python version         : {platform.python_version()}")
-    print(f"- TensorFlow             : {tf.__version__}")
-    print(f"- Keras                  : {tf.keras.__version__}")
+    if tf is not None:
+        print(f"- TensorFlow             : {tf.__version__}")
+        try:
+            print(f"- Keras                  : {tf.keras.__version__}")
+        except AttributeError:
+            print("- Keras                  : Not available in this TensorFlow version")
+    if torch is not None:
+        print(f"- PyTorch                : {torch.__version__}")
     print("")
     print(f"- Current directory      : {os.getcwd()}")
     print("=" * 60)
