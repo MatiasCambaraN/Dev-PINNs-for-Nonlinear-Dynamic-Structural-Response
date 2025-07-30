@@ -1,8 +1,10 @@
-#*.h5
-#*.mat
-#*.npz
-#*.save
 __pycache__/
+
+# Ignore results because they are large and can be regenerated
+*.h5
+*.mat
+*.npz
+*.save
 
 # Ignore loss files (already included in results .mat files)
 *loss.npz
