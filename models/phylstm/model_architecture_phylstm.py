@@ -8,13 +8,16 @@ import matplotlib.pyplot as plt
 
 class DeepPhyLSTM2:
     # Initialize the class
-    def __init__(self, eta, eta_t, g, ag, ag_c, lift, Phi_t, save_path,
+    def __init__(self, eta, eta_t, g, ag, ag_c, lift, 
+                 #Phi_t,  # Removed Phi_t from parameters
+                 save_path,
                  lstm_units=100,
                  lstm_layers=3,
                  dense_units=100,
                  dense_layers=1,
                  activation='relu',
-                 stateful=False):
+                 stateful=False,
+                 dt=0.01): # New parameter for time step
 
         # Save data
         self.eta = eta
@@ -23,8 +26,9 @@ class DeepPhyLSTM2:
         self.ag = ag
         self.lift = lift
         self.ag_c = ag_c
-        self.Phi_t = Phi_t
+        #self.Phi_t = Phi_t
         self.save_path = save_path
+        self.dt = dt     # Time step for finite difference calculation
         
         # Save Hyperparameters
         self.lstm_units = lstm_units
@@ -47,7 +51,7 @@ class DeepPhyLSTM2:
         self.ag_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
         self.lift_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
         self.ag_c_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
-        self.Phi_tf = tf.placeholder(tf.float32, shape=[None, self.eta.shape[1], self.eta.shape[1]])
+        #self.Phi_tf = tf.placeholder(tf.float32, shape=[None, self.eta.shape[1], self.eta.shape[1]])
 
         # physics informed neural networks
         self.eta_pred, self.eta_t_pred, self.eta_tt_pred, self.eta_dot_pred, self.g_pred = self.net_structure(self.ag_tf)
@@ -126,15 +130,66 @@ class DeepPhyLSTM2:
         model.add(Dense(self.eta.shape[2]))
         return model(X)
 
+    def finite_difference_time(self, u, dt):
+        """
+        Aproxima ∂u/∂t con esquema asimétrico de segundo orden:
+        - Primer paso: adelantado de orden 2
+        - Interiores: centrado
+        - Último paso: atrasado de orden 2
+
+        Args:
+            u: tensor [batch, time, features]
+            dt: paso temporal (float)
+
+        Returns:
+            du_dt: tensor [batch, time, features]
+        """
+        batch_size = tf.shape(u)[0]
+        time_steps = tf.shape(u)[1]
+        features = tf.shape(u)[2]
+
+        # Separar índices
+        u0 = u[:, 0, :]          # primer paso
+        u1 = u[:, 1, :]
+        u2 = u[:, 2, :]
+
+        un_2 = u[:, -3, :]
+        un_1 = u[:, -2, :]
+        un = u[:, -1, :]
+
+        # Derivada en el primer punto: f'(t0) ≈ (-3/2 f0 + 2 f1 - 1/2 f2) / dt
+        d0 = (-1.5 * u0 + 2.0 * u1 - 0.5 * u2) / dt
+
+        # Derivada en el último punto: f'(tN) ≈ (1.5 fN - 2 fN-1 + 0.5 fN-2) / dt
+        dn = (1.5 * un - 2.0 * un_1 + 0.5 * un_2) / dt
+
+        # Derivada en puntos interiores con diferencias centradas
+        # f'(ti) ≈ (f(t+1) - f(t-1)) / (2 dt)
+        u_forward = u[:, 2:, :]
+        u_backward = u[:, :-2, :]
+        d_interior = (u_forward - u_backward) / (2.0 * dt)
+
+        # Reconstruir tensor completo [batch, time, features]
+        du_dt = tf.concat([
+                            tf.expand_dims(d0, axis=1),         # [batch, 1, features]
+                            d_interior,                         # [batch, time-2, features]
+                            tf.expand_dims(dn, axis=1)          # [batch, 1, features]
+                            ], axis=1)
+
+        return du_dt
+    
+
     def net_structure(self, ag):
         output = self.LSTM_model(ag)
         eta = output[:, :, 0:self.eta.shape[2]]
         eta_dot = output[:, :, self.eta.shape[2]:2*self.eta.shape[2]]
         g = output[:, :, 2*self.eta.shape[2]:]
 
-        eta_t = tf.matmul(self.Phi_tf, eta)
-        eta_tt = tf.matmul(self.Phi_tf, eta_dot)
-        
+        #eta_t = tf.matmul(self.Phi_tf, eta)
+        #eta_tt = tf.matmul(self.Phi_tf, eta_dot)
+        eta_t = self.finite_difference_time(eta, self.dt)
+        eta_tt = self.finite_difference_time(eta_dot, self.dt)
+
         return eta, eta_t, eta_tt, eta_dot, g
 
     def net_f(self, ag):
@@ -179,11 +234,13 @@ class DeepPhyLSTM2:
 
             tf_dict = {self.eta_tf: self.eta_tr, self.eta_t_tf: self.eta_t_tr, self.g_tf: self.g_tr,
                        self.ag_tf: self.ag_tr, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                       self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate}
+                       #self.Phi_tf: self.Phi_t, 
+                       self.learning_rate: learning_rate}
 
             tf_dict_val = {self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
                            self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                           self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate}
+                           #self.Phi_tf: self.Phi_t, 
+                           self.learning_rate: learning_rate}
             
             self.sess.run(self.train_op, tf_dict)
 
@@ -206,7 +263,8 @@ class DeepPhyLSTM2:
 
             tf_dict_all = {self.eta_tf: self.eta_tr, self.eta_t_tf: self.eta_t_tr, self.g_tf: self.g_tr,
                        self.ag_tf: self.ag_tr, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                       self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate, self.best_loss: best_loss}
+                       #self.Phi_tf: self.Phi_t, 
+                       self.learning_rate: learning_rate, self.best_loss: best_loss}
 
             self.optimizer.minimize(self.sess,
                                     feed_dict=tf_dict_all,
@@ -233,7 +291,9 @@ class DeepPhyLSTM2:
         Loss_BFGS = np.append(Loss_BFGS, loss)
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
-                               self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c, self.Phi_tf: self.Phi_t})
+                               self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c
+                               #, self.Phi_tf: self.Phi_t
+                               })
 
         Loss_val_BFGS = np.append(Loss_val_BFGS, loss_val)
 
@@ -243,9 +303,13 @@ class DeepPhyLSTM2:
     def step_callback(self, loss):
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
-                                 self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c, self.Phi_tf: self.Phi_t})
+                                 self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c
+                                 #, self.Phi_tf: self.Phi_t
+                                 })
 
-        eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star = self.predict(self.ag_val, self.Phi_t[0:self.ag_val.shape[0]])
+        eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star = self.predict(self.ag_val
+                                                                               #, self.Phi_t[0:self.ag_val.shape[0]]
+                                                                               )
         loss_val = np.mean(np.square(eta_star, self.eta_val))
 
         print('Loss_val: %.3e', loss_val)
@@ -253,9 +317,13 @@ class DeepPhyLSTM2:
     def callback1(self, loss):
         print('Loss:', loss)
 
-    def predict(self, ag_star, Phi_star):
+    def predict(self, ag_star
+                #, Phi_star
+                ):
 
-        tf_dict = {self.ag_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
 
         eta_star = self.sess.run(self.eta_pred, tf_dict)
         eta_t_star = self.sess.run(self.eta_t_pred, tf_dict)
@@ -265,18 +333,26 @@ class DeepPhyLSTM2:
 
         return eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star
 
-    def predict_c(self, ag_star, Phi_star):
+    def predict_c(self, ag_star
+                  #, Phi_star
+                  ):
 
-        tf_dict = {self.ag_c_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_c_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
         lift_star = self.sess.run(self.lift_c_pred, tf_dict)
 
         return lift_star
 
-    def predict_best_model(self, path, ag_star, Phi_star):
+    def predict_best_model(self, path, ag_star
+                           #, Phi_star
+                           ):
         # best_model = tf.train.import_meta_graph(path)
         self.saver.restore(sess=self.sess, save_path=path)
 
-        tf_dict = {self.ag_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
 
         eta_star = self.sess.run(self.eta_pred, tf_dict)
         eta_t_star = self.sess.run(self.eta_t_pred, tf_dict)
@@ -291,12 +367,15 @@ class DeepPhyLSTM2:
 
 class DeepPhyLSTM3:
     # Initialize the class
-    def __init__(self, eta, eta_t, g, ag, ag_c, lift, Phi_t, save_path=None,
+    def __init__(self, eta, eta_t, g, ag, ag_c, lift, 
+                 #Phi_t, 
+                 save_path=None,
                  lstm_units=100,
                  lstm_layers=3,
                  dense_units=None,
                  activation='relu',
-                 stateful=False):
+                 stateful=False,
+                 dt=0.01): # New parameter for time step
 
         # Save data and config
         self.eta = eta
@@ -305,8 +384,9 @@ class DeepPhyLSTM3:
         self.ag = ag
         self.lift = lift
         self.ag_c = ag_c
-        self.Phi_t = Phi_t
+        #self.Phi_t = Phi_t
         self.save_path = save_path
+        self.dt = dt     # Time step for finite difference calculation
         
         # Save Hyperparameters
         self.lstm_units = lstm_units
@@ -328,7 +408,7 @@ class DeepPhyLSTM3:
         self.ag_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
         self.lift_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
         self.ag_c_tf = tf.placeholder(tf.float32, shape=[None, None, 1])
-        self.Phi_tf = tf.placeholder(tf.float32, shape=[None, self.eta.shape[1], self.eta.shape[1]])
+        #self.Phi_tf = tf.placeholder(tf.float32, shape=[None, self.eta.shape[1], self.eta.shape[1]])
 
         # physics informed neural networks
         self.eta_pred, self.eta_t_pred, self.eta_tt_pred, self.eta_dot_pred, self.g_pred, self.g_t_pred = self.net_structure(self.ag_tf)
@@ -393,6 +473,54 @@ class DeepPhyLSTM3:
     def LSTM_model_g(self, X):
         model = self._build_lstm(input_shape=(None, 2 * self.eta.shape[2]), out_dim=self.eta.shape[2])
         return model(X)
+    
+    def finite_difference_time(self, u, dt):
+        """
+        Aproxima ∂u/∂t con esquema asimétrico de segundo orden:
+        - Primer paso: adelantado de orden 2
+        - Interiores: centrado
+        - Último paso: atrasado de orden 2
+
+        Args:
+            u: tensor [batch, time, features]
+            dt: paso temporal (float)
+
+        Returns:
+            du_dt: tensor [batch, time, features]
+        """
+        batch_size = tf.shape(u)[0]
+        time_steps = tf.shape(u)[1]
+        features = tf.shape(u)[2]
+
+        # Separar índices
+        u0 = u[:, 0, :]          # primer paso
+        u1 = u[:, 1, :]
+        u2 = u[:, 2, :]
+
+        un_2 = u[:, -3, :]
+        un_1 = u[:, -2, :]
+        un = u[:, -1, :]
+
+        # Derivada en el primer punto: f'(t0) ≈ (-3/2 f0 + 2 f1 - 1/2 f2) / dt
+        d0 = (-1.5 * u0 + 2.0 * u1 - 0.5 * u2) / dt
+
+        # Derivada en el último punto: f'(tN) ≈ (1.5 fN - 2 fN-1 + 0.5 fN-2) / dt
+        dn = (1.5 * un - 2.0 * un_1 + 0.5 * un_2) / dt
+
+        # Derivada en puntos interiores con diferencias centradas
+        # f'(ti) ≈ (f(t+1) - f(t-1)) / (2 dt)
+        u_forward = u[:, 2:, :]
+        u_backward = u[:, :-2, :]
+        d_interior = (u_forward - u_backward) / (2.0 * dt)
+
+        # Reconstruir tensor completo [batch, time, features]
+        du_dt = tf.concat([
+                            tf.expand_dims(d0, axis=1),         # [batch, 1, features]
+                            d_interior,                         # [batch, time-2, features]
+                            tf.expand_dims(dn, axis=1)          # [batch, 1, features]
+                            ], axis=1)
+
+        return du_dt
 
     def net_structure(self, ag):
         output = self.LSTM_model(ag)
@@ -400,9 +528,12 @@ class DeepPhyLSTM3:
         eta_dot = output[:, :, self.eta.shape[2]:2*self.eta.shape[2]]
         g = output[:, :, 2*self.eta.shape[2]:]
 
-        eta_t = tf.matmul(self.Phi_tf, eta)
-        eta_tt = tf.matmul(self.Phi_tf, eta_dot)
-        g_t = tf.matmul(self.Phi_tf, g)
+        #eta_t = tf.matmul(self.Phi_tf, eta)
+        #eta_tt = tf.matmul(self.Phi_tf, eta_dot)
+        #g_t = tf.matmul(self.Phi_tf, g)
+        eta_t = self.finite_difference_time(eta, self.dt)
+        eta_tt = self.finite_difference_time(eta_dot, self.dt)
+        g_t = self.finite_difference_time(g, self.dt)
 
         return eta, eta_t, eta_tt, eta_dot, g, g_t
 
@@ -448,11 +579,13 @@ class DeepPhyLSTM3:
 
             tf_dict = {self.eta_tf: self.eta_tr, self.eta_t_tf: self.eta_t_tr, self.g_tf: self.g_tr,
                        self.ag_tf: self.ag_tr, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                       self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate}
+                       #self.Phi_tf: self.Phi_t, 
+                       self.learning_rate: learning_rate}
 
             tf_dict_val = {self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
                            self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                           self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate}
+                           #self.Phi_tf: self.Phi_t, 
+                           self.learning_rate: learning_rate}
 
             self.sess.run(self.train_op, tf_dict)
 
@@ -484,7 +617,8 @@ class DeepPhyLSTM3:
 
             tf_dict_all = {self.eta_tf: self.eta_tr, self.eta_t_tf: self.eta_t_tr, self.g_tf: self.g_tr,
                        self.ag_tf: self.ag_tr, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c,
-                       self.Phi_tf: self.Phi_t, self.learning_rate: learning_rate, self.best_loss: best_loss}
+                       #self.Phi_tf: self.Phi_t, 
+                       self.learning_rate: learning_rate, self.best_loss: best_loss}
 
             self.optimizer.minimize(self.sess,
                                     feed_dict=tf_dict_all,
@@ -512,7 +646,9 @@ class DeepPhyLSTM3:
         Loss_BFGS = np.append(Loss_BFGS, loss)
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
-                               self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c, self.Phi_tf: self.Phi_t})
+                               self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c
+                               #, self.Phi_tf: self.Phi_t
+                               })
 
         Loss_val_BFGS = np.append(Loss_val_BFGS, loss_val)
 
@@ -522,9 +658,13 @@ class DeepPhyLSTM3:
     def step_callback(self, loss):
 
         loss_val = self.sess.run(self.loss, feed_dict={self.eta_tf: self.eta_val, self.eta_t_tf: self.eta_t_val, self.g_tf: self.g_val,
-                                 self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c, self.Phi_tf: self.Phi_t})
+                                 self.ag_tf: self.ag_val, self.lift_tf: self.lift, self.ag_c_tf: self.ag_c
+                                 #, self.Phi_tf: self.Phi_t
+                                 })
 
-        eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star = self.predict(self.ag_val, self.Phi_t[0:self.ag_val.shape[0]])
+        eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star = self.predict(self.ag_val
+                                                                               #, self.Phi_t[0:self.ag_val.shape[0]]
+                                                                               )
         loss_val = np.mean(np.square(eta_star, self.eta_val))
 
         print('Loss_val: %.3e', loss_val)
@@ -532,9 +672,13 @@ class DeepPhyLSTM3:
     def callback1(self, loss):
         print('Loss:', loss)
 
-    def predict(self, ag_star, Phi_star):
+    def predict(self, ag_star
+                #, Phi_star
+                ):
 
-        tf_dict = {self.ag_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
 
         eta_star = self.sess.run(self.eta_pred, tf_dict)
         eta_t_star = self.sess.run(self.eta_t_pred, tf_dict)
@@ -544,17 +688,25 @@ class DeepPhyLSTM3:
 
         return eta_star, eta_t_star, eta_tt_star, eta_dot_star, g_star
 
-    def predict_c(self, ag_star, Phi_star):
+    def predict_c(self, ag_star
+                  #, Phi_star
+                  ):
 
-        tf_dict = {self.ag_c_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_c_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
         lift_star = self.sess.run(self.lift_c_pred, tf_dict)
 
         return lift_star
 
-    def predict_best_model(self, path, ag_star, Phi_star):
+    def predict_best_model(self, path, ag_star
+                           #, Phi_star
+                           ):
         self.saver.restore(sess=self.sess, save_path=path)
 
-        tf_dict = {self.ag_tf: ag_star, self.Phi_tf: Phi_star}
+        tf_dict = {self.ag_tf: ag_star
+                   #, self.Phi_tf: Phi_star
+                   }
 
         eta_star = self.sess.run(self.eta_pred, tf_dict)
         eta_t_star = self.sess.run(self.eta_t_pred, tf_dict)
