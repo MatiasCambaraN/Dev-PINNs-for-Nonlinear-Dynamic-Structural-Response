@@ -1,0 +1,28 @@
+{
+    // -------------------------------
+    // SpellRight configuration (spell checker for VS Code)
+    // -------------------------------
+    "spellright.language": [
+        "en"  // Sets the spell checking language to English
+    ],
+    "spellright.documentTypes": [
+        "markdown",   // Enable spell checking in Markdown files (.md)
+        "latex",      // Enable spell checking in LaTeX documents (.tex)
+        "plaintext"   // Enable spell checking in plain text files
+    ],
+
+    // -------------------------------
+    // Pylance diagnostics configuration
+    // -------------------------------
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",         // Hides false warnings about missing Python modules (e.g., numpy, pandas)
+        "reportMissingModuleSource": "none",    // Suppresses warnings when the source code of a module cannot be found
+        "reportAttributeAccessIssue": "none",   // Disables warnings when Pylance thinks an attribute/method doesn't exist (false positives)
+        "reportOptionalMemberAccess": "none"    // Disables warnings when accessing attributes that might be None
+    },
+
+    // -------------------------------
+    // Type checking mode for Pylance
+    // -------------------------------
+    "python.analysis.typeCheckingMode": "basic" // Enables basic type checking (less strict than "strict" mode, fewer false positives)
+}
