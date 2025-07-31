@@ -18,11 +18,15 @@
         "reportMissingImports": "none",         // Hides false warnings about missing Python modules (e.g., numpy, pandas)
         "reportMissingModuleSource": "none",    // Suppresses warnings when the source code of a module cannot be found
         "reportAttributeAccessIssue": "none",   // Disables warnings when Pylance thinks an attribute/method doesn't exist (false positives)
-        "reportOptionalMemberAccess": "none"    // Disables warnings when accessing attributes that might be None
+        "reportOptionalMemberAccess": "none",   // Disables warnings when accessing attributes that might be None
+        "reportCallIssue": "none",              // Suppresses warnings about calling functions that Pylance thinks might not exist
+        "reportArgumentType": "none",            // Disables warnings about argument types that Pylance thinks are incorrect
+        "reportOperatorIssue": "none"            // Suppresses warnings about operator usage that Pylance thinks is incorrect
     },
 
     // -------------------------------
     // Type checking mode for Pylance
     // -------------------------------
     "python.analysis.typeCheckingMode": "basic" // Enables basic type checking (less strict than "strict" mode, fewer false positives)
+
 }
