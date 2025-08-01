@@ -7,21 +7,24 @@ import matplotlib.pyplot as plt
 
 class DeepPhyCNNutt:
     # Initialize the class
-    def __init__(self, eta_tt, ag, Phi_t,
+    def __init__(self, eta_tt, ag, 
+                 #Phi_t,
                  num_filters=64,
                  kernel_size=50,
                  num_conv_layers=5,
                  num_dense_layers=2,
                  dense_units=50,
-                 activation='relu'):
+                 activation='relu',
+                 dt=0.01): # New parameter for time step
 
         # Save data 
         self.eta_tt = eta_tt
         self.ag = ag
         # self.lift = lift
         # self.ag_c = ag_c
-        self.Phi_t = Phi_t
+        # self.Phi_t = Phi_t
         # self.Phi_tt = Phi_tt
+        self.dt = dt  # Time step for finite difference calculation
         
         # Save hyperparameters
         self.num_filters = num_filters
@@ -84,23 +87,73 @@ class DeepPhyCNNutt:
 
         model.summary()
         return model(X)
+    
+    def finite_difference_time(self, u, dt):
+        """
+        Aproxima ∂u/∂t con esquema asimétrico de segundo orden:
+        - Primer paso: adelantado de orden 2
+        - Interiores: centrado
+        - Último paso: atrasado de orden 2
+
+        Args:
+            u: tensor [batch, time, features]
+            dt: paso temporal (float)
+
+        Returns:
+            du_dt: tensor [batch, time, features]
+        """
+        batch_size = tf.shape(u)[0]
+        time_steps = tf.shape(u)[1]
+        features = tf.shape(u)[2]
+
+        # Separar índices
+        u0 = u[:, 0, :]          # primer paso
+        u1 = u[:, 1, :]
+        u2 = u[:, 2, :]
+
+        un_2 = u[:, -3, :]
+        un_1 = u[:, -2, :]
+        un = u[:, -1, :]
+
+        # Derivada en el primer punto: f'(t0) ≈ (-3/2 f0 + 2 f1 - 1/2 f2) / dt
+        d0 = (-1.5 * u0 + 2.0 * u1 - 0.5 * u2) / dt
+
+        # Derivada en el último punto: f'(tN) ≈ (1.5 fN - 2 fN-1 + 0.5 fN-2) / dt
+        dn = (1.5 * un - 2.0 * un_1 + 0.5 * un_2) / dt
+
+        # Derivada en puntos interiores con diferencias centradas
+        # f'(ti) ≈ (f(t+1) - f(t-1)) / (2 dt)
+        u_forward = u[:, 2:, :]
+        u_backward = u[:, :-2, :]
+        d_interior = (u_forward - u_backward) / (2.0 * dt)
+
+        # Reconstruir tensor completo [batch, time, features]
+        du_dt = tf.concat([
+                            tf.expand_dims(d0, axis=1),         # [batch, 1, features]
+                            d_interior,                         # [batch, time-2, features]
+                            tf.expand_dims(dn, axis=1)          # [batch, 1, features]
+                            ], axis=1)
+
+        return du_dt
 
     def net_structure(self, ag):
         eta = self.CNN_model(ag)
 
-        eta_shape = tf.shape(eta)
-        batch_size = eta_shape[0]
-        output_dim = eta_shape[1]
+        #eta_shape = tf.shape(eta)
+        #batch_size = eta_shape[0]
+        #output_dim = eta_shape[1]
 
-        Phi_ut = tf.reshape(self.Phi_t, [1, output_dim, output_dim])
-        Phi_ut = tf.tile(Phi_ut, [batch_size, 1, 1])
+        #Phi_ut = tf.reshape(self.Phi_t, [1, output_dim, output_dim])
+        #Phi_ut = tf.tile(Phi_ut, [batch_size, 1, 1])
         # Modified Phi_ut construction to avoid shape mismatch during prediction.
         # Replaced use of self.eta_tt.shape with dynamic shape extraction from `eta`,
         # using tf.shape() instead of static shape access. This ensures compatibility
         # when batch size is not fixed (e.g., during inference).
 
-        eta_t = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta)
-        eta_tt = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta_t)
+        #eta_t = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta)
+        #eta_tt = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta_t)
+        eta_t = self.finite_difference_time(eta, self.dt)
+        eta_tt = self.finite_difference_time(eta_t, self.dt)
 
         return eta, eta_t, eta_tt
     
@@ -156,13 +209,15 @@ class DeepPhyCNNutt:
 
 class DeepPhyCNNu:
     # Initialize the class
-    def __init__(self, eta, eta_t, g, ag, lift, Phi_t,
+    def __init__(self, eta, eta_t, g, ag, lift, 
+                 #Phi_t,
                  num_filters=64,
                  kernel_size=40,
                  num_conv_layers=5,
                  num_dense_layers=2,
                  dense_units=50,
-                 activation='relu'):
+                 activation='relu',
+                 dt=0.01): # New parameter for time step
 
         # Save data
         self.eta = eta
@@ -172,8 +227,9 @@ class DeepPhyCNNu:
         self.ag = ag
         self.lift = lift
         # self.ag_c = ag_c
-        self.Phi_t = Phi_t
+        # self.Phi_t = Phi_t
         # self.Phi_tt = Phi_tt
+        self.dt = dt  # Time step for finite difference calculation
         
         # Save hyperparameters
         self.num_filters = num_filters
@@ -246,6 +302,54 @@ class DeepPhyCNNu:
 
         model.summary()
         return model(X)
+    
+    def finite_difference_time(self, u, dt):
+        """
+        Aproxima ∂u/∂t con esquema asimétrico de segundo orden:
+        - Primer paso: adelantado de orden 2
+        - Interiores: centrado
+        - Último paso: atrasado de orden 2
+
+        Args:
+            u: tensor [batch, time, features]
+            dt: paso temporal (float)
+
+        Returns:
+            du_dt: tensor [batch, time, features]
+        """
+        batch_size = tf.shape(u)[0]
+        time_steps = tf.shape(u)[1]
+        features = tf.shape(u)[2]
+
+        # Separar índices
+        u0 = u[:, 0, :]          # primer paso
+        u1 = u[:, 1, :]
+        u2 = u[:, 2, :]
+
+        un_2 = u[:, -3, :]
+        un_1 = u[:, -2, :]
+        un = u[:, -1, :]
+
+        # Derivada en el primer punto: f'(t0) ≈ (-3/2 f0 + 2 f1 - 1/2 f2) / dt
+        d0 = (-1.5 * u0 + 2.0 * u1 - 0.5 * u2) / dt
+
+        # Derivada en el último punto: f'(tN) ≈ (1.5 fN - 2 fN-1 + 0.5 fN-2) / dt
+        dn = (1.5 * un - 2.0 * un_1 + 0.5 * un_2) / dt
+
+        # Derivada en puntos interiores con diferencias centradas
+        # f'(ti) ≈ (f(t+1) - f(t-1)) / (2 dt)
+        u_forward = u[:, 2:, :]
+        u_backward = u[:, :-2, :]
+        d_interior = (u_forward - u_backward) / (2.0 * dt)
+
+        # Reconstruir tensor completo [batch, time, features]
+        du_dt = tf.concat([
+                            tf.expand_dims(d0, axis=1),         # [batch, 1, features]
+                            d_interior,                         # [batch, time-2, features]
+                            tf.expand_dims(dn, axis=1)          # [batch, 1, features]
+                            ], axis=1)
+
+        return du_dt
 
     def net_structure(self, ag):
         output = self.CNN_model(ag)
@@ -253,10 +357,12 @@ class DeepPhyCNNu:
         eta_dot = output[:, :, 1:2]
         g = output[:, :, 2:]
 
-        Phi_ut = np.reshape(self.Phi_t, [1, self.eta.shape[1], self.eta.shape[1]])
-        Phi_ut = np.repeat(Phi_ut, self.eta.shape[0], axis=0)
-        eta_t = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta)
-        eta_tt = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta_dot)
+        #Phi_ut = np.reshape(self.Phi_t, [1, self.eta.shape[1], self.eta.shape[1]])
+        #Phi_ut = np.repeat(Phi_ut, self.eta.shape[0], axis=0)
+        #eta_t = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta)
+        #eta_tt = tf.matmul(tf.cast(Phi_ut, dtype=tf.float32), eta_dot)
+        eta_t = self.finite_difference_time(eta, self.dt)
+        eta_tt = self.finite_difference_time(eta_dot, self.dt)
 
         lift = eta_tt + g
         return eta, eta_t, eta_dot, g, lift
